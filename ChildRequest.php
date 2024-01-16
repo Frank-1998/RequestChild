@@ -36,6 +36,23 @@ class ChildRequest extends Request
 
 
     /**
+     * retrive the mean time array, it contains mean response time for all url the object has processed so far
+     * 
+     * @param 
+     * @return array The mean time array
+     */
+    public function retrieveMeanResTime(): array
+    {
+        $meanTimeArray = [];
+        $keys = array_keys($this->responseTimes);
+        foreach($keys as $key){
+            $meanTimeArray[$key][] = array_sum($this->responseTimes[$key])/count($this->responseTimes[$key]);
+        } 
+        return $meanTimeArray;
+    }
+
+
+    /**
      * method to record one response time for a specific uri
      * 
      * @param string $uri The URI of the request endpoint
@@ -51,5 +68,4 @@ class ChildRequest extends Request
         $this->responseTimes[$uri][] = $responseTime;
     }
 }
-
 ?>
