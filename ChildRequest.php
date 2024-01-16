@@ -11,19 +11,9 @@ class ChildRequest extends Request
         $startTime = microtime(true);
         $response = $this -> process($uri);
         $timeSpent = microtime(true) - $startTime;
-        echo $timeSpent;
-        echo "\n";
         return $response;
     }
 
 
 }
-
-$child = new ChildRequest();
-$child -> childProcess('test.com');
-$child -> childProcess('test.com');
-$child -> childProcess('test.com');
-$child -> childProcess('test.com');
-$child -> childProcess('test.com');
-
 ?>
