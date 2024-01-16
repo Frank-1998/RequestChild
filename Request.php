@@ -93,3 +93,4 @@ class Request
         return 'Sample response.';
     }
 }
+?>
