@@ -57,7 +57,7 @@ class ChildRequest extends Request
         // process the request and calculate the response time 
         $startTime = microtime(true);
         $response = $this -> process($uri);
-        $timeSpent = microtime(true) - $startTime;
+        $timeSpent = (microtime(true) - $startTime)*1000; // conver from seconds to milliseconds
 
         $this->recordResponseTime($uri, $timeSpent); 
 
@@ -75,6 +75,10 @@ class ChildRequest extends Request
      */
     private function normalizeData(): array
     {
+        // if no record yet, can't normalize data, return empty array.
+        if (count($this->responseTimes) == 0){
+            return [];
+        }
         $normalizedData = [];
         $keys = array_keys($this->responseTimes); 
         $means = $this->retrieveMeanResTime();
@@ -82,6 +86,11 @@ class ChildRequest extends Request
 
         foreach($keys as $key){
             $data = $this->responseTimes[$key];
+            // if there is only 1 data, can't normalize it, continue to next URI
+            if (count($data) < 2){
+                $normalizedData[$key][] = $data[0];
+                continue;
+            }
             $mean_i = $means[$key][0];
             $std_i = $stdDevs[$key][0];
             foreach($data as $time){
@@ -103,6 +112,10 @@ class ChildRequest extends Request
     public function retrieveMeanResTime(): array
     {
         $meanTimeArray = [];
+        // if there no record yet, not be able to calculate mean, return empty array.
+        if (count($this->responseTimes) == 0){
+            return [];
+        }
         $keys = array_keys($this->responseTimes);
         foreach($keys as $key){
             $meanTimeArray[$key][] = array_sum($this->responseTimes[$key])/count($this->responseTimes[$key]);
@@ -121,11 +134,20 @@ class ChildRequest extends Request
     public function retrieveStdDev(): array
     {
         $meanArray = $this->retrieveMeanResTime();
+        // there is no record yet, not able to calculate standard deviation, return empty array.
+        if (count($meanArray) == 0){
+            return [];
+        }
         $stdDevArray = [];
         $keys = array_keys($this->responseTimes);
         foreach($keys as $key){
             $sum = 0.0; // for summation
             $num_data = count($this->responseTimes[$key]); // n of each URI
+            // if there is only 1 request for this URI, the standard deviation is 0, continue to the next URI
+            if ($num_data == 1){
+                $stdDevArray[$key][] = 0.0;
+                continue;
+            }
             $mean_i = $meanArray[$key][0]; // mean of each URI
 
             // to calculate the sum of square of the (x - x_mean)
@@ -156,6 +178,5 @@ class ChildRequest extends Request
 }
 
 $child = new ChildRequest(5);
-$child->childProcess('tt');
 $child->get_normalizedData();
 ?>
