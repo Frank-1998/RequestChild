@@ -38,9 +38,16 @@ class ChildRequest extends Request
         var_dump($this->responseTimes);
     }
 
+    public function get_normalizedData(): void 
+    {
+        var_dump($this->normalizeData());
+    }
+
+
 
     /**
      * Process the request and record response time
+     * Runtime estimate: O(1)
      * 
      * @param string $uri The URI of the request endpoint
      * @return string The response message
@@ -56,8 +63,39 @@ class ChildRequest extends Request
 
         return $response;
     }
+
+
+    /**
+     * get the normalized version of $responseTimes, based on the information provided in Request.php (sleep time is generated with Gaussian distribution),
+     * the normalization method is Z-score standardization
+     * Runtime: O(n^2)
+     * 
+     * @param
+     * @return array the Normalized version of $responseTimes, 
+     */
+    private function normalizeData(): array
+    {
+        $normalizedData = [];
+        $keys = array_keys($this->responseTimes); 
+        $means = $this->retrieveMeanResTime();
+        $stdDevs = $this->retrieveStdDev();
+
+        foreach($keys as $key){
+            $data = $this->responseTimes[$key];
+            $mean_i = $means[$key][0];
+            $std_i = $stdDevs[$key][0];
+            foreach($data as $time){
+                $normalizedTime = ($time - $mean_i)/$std_i;
+                $normalizedData[$key][] = $normalizedTime;
+            }
+        }
+        return $normalizedData;
+    }
+
+
     /**
      * retrive the mean time array, it contains mean response time for all url the object has processed so far
+     * Runtime: O(n)
      * 
      * @param 
      * @return array The mean time array
@@ -74,10 +112,12 @@ class ChildRequest extends Request
 
     /**
      * Retrieve the standard deviation of each URI
+     * Runtime: O(n^2)
      * 
      * @param 
      * @return array The array that contains a standard deviation of each URI
      */
+    // TODO: implement error handling
     public function retrieveStdDev(): array
     {
         $meanArray = $this->retrieveMeanResTime();
@@ -87,7 +127,6 @@ class ChildRequest extends Request
             $sum = 0.0; // for summation
             $num_data = count($this->responseTimes[$key]); // n of each URI
             $mean_i = $meanArray[$key][0]; // mean of each URI
-            var_dump($mean_i);
 
             // to calculate the sum of square of the (x - x_mean)
             foreach($this->responseTimes[$key] as $time){
@@ -115,4 +154,8 @@ class ChildRequest extends Request
         $this->responseTimes[$uri][] = $responseTime;
     }
 }
+
+$child = new ChildRequest(5);
+$child->childProcess('tt');
+$child->get_normalizedData();
 ?>
