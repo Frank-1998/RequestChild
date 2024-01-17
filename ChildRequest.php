@@ -7,6 +7,29 @@ class ChildRequest extends Request
 {
     // an array to record array of response times of each uri
     private $responseTimes = [];
+    private $maxNumBins;
+
+
+    /**
+     * the constructor for ChildRequest Class
+     * 
+     * @param int $maxNumBins the maximum number of bins for each histogram
+     */
+    function __construct(int $maxNumBins) 
+    {
+        $this->maxNumBins = $maxNumBins;   
+    }
+
+    /**
+     * the getter to get maximum number of bins 
+     * 
+     * @param
+     * @return int The maximum number of bins
+     */
+    public function get_maxNumBins(): int
+    {
+        return $this->maxNumBins;
+    }
 
 
     // for testing and debugging purpose
@@ -33,8 +56,6 @@ class ChildRequest extends Request
 
         return $response;
     }
-
-
     /**
      * retrive the mean time array, it contains mean response time for all url the object has processed so far
      * 
