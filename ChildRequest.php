@@ -42,6 +42,10 @@ class ChildRequest extends Request
     {
         var_dump($this->normalizeData());
     }
+    public function get_histogramData(): void
+    {
+        var_dump($this->getHistogramData());
+    }
 
 
 
@@ -62,6 +66,40 @@ class ChildRequest extends Request
         $this->recordResponseTime($uri, $timeSpent); 
 
         return $response;
+    }
+
+
+    private function getHistogramData(): array
+    {
+        
+        $normalizedData = $this->normalizeData();
+        // if there is no normalized data, can't generate histogram data.
+        if (count($normalizedData) == 0){
+            return [];
+        }
+        $histogramData = [];
+        $keys = array_keys($this->responseTimes);
+        foreach ($keys as $key){
+            $data = $normalizedData[$key];
+            $numOfUnique = count(array_unique($data));
+            if ($numOfUnique <= $this->maxNumBins){
+                $data = array_map('strval', $data);
+                // there is less data than maximum bin number, # of bins < maximum bins number
+                $histogramData[$key] = array_count_values($data);
+            }
+            else{ // divide the data into ranges(bins)
+                $min_value = min($data);
+                $max_value = max($data);
+                $range = $max_value - $min_value;
+                $binRange = $range/$this->maxNumBins;
+                for ($i = 1; $i<=$this->maxNumBins; $i++){
+
+                    $histogramData[] = strval($min_value) +'-'+strval($min_value+$binRange-0.0001);
+                    // $min_value +=
+                }
+            }
+        }
+        return $histogramData;
     }
 
 
@@ -177,6 +215,5 @@ class ChildRequest extends Request
     }
 }
 
-$child = new ChildRequest(5);
-$child->get_normalizedData();
+
 ?>
