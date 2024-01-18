@@ -40,7 +40,12 @@ class ChildRequest extends Request
 
     public function get_normalizedData(): void 
     {
-        var_dump($this->normalizeData());
+        $result = $this->normalizeData();
+        $keys = array_keys($result);
+        foreach($keys as $key){
+            sort($result[$key]);
+        }
+        var_dump($result);
     }
     public function get_histogramData(): void
     {
@@ -68,7 +73,12 @@ class ChildRequest extends Request
         return $response;
     }
 
-
+    /**
+     * Generate histogram data from nomalized data
+     * 
+     * @param
+     * @return array The histogram data(category and number of each category) of each URI 
+     */
     private function getHistogramData(): array
     {
         
@@ -92,15 +102,34 @@ class ChildRequest extends Request
                 $max_value = max($data);
                 $range = $max_value - $min_value;
                 $binRange = $range/$this->maxNumBins;
-                for ($i = 1; $i<=$this->maxNumBins; $i++){
-
-                    $histogramData[] = strval($min_value) +'-'+strval($min_value+$binRange-0.0001);
-                    // $min_value +=
+                for ($i = 1; $i<=$this->maxNumBins; $i++){ // using max and min value to divide bins evenly
+                    $start = $min_value;
+                    $finish = $min_value + $binRange;
+                    $histogramData[strval(round($start,2)."~".round($finish,2))] = $this->countInRange($start, $finish, $data);
+                    $min_value += ($binRange+0.0000000000001);
                 }
             }
         }
         return $histogramData;
     }
+
+    /**
+     * helper function of getHistogramData, count how many number from an array are in given range
+     * 
+     * @param float $min(range minimum), $max(range maximum), $numbers(array of number)
+     * @return int how many numbers in the array are inside the range 
+     */
+    private function countInRange(float $min, float $max, array $numbers): int 
+    {
+        $result = 0; 
+        foreach($numbers as $number){
+            if ($number >= $min && $number <= $max){
+                $result += 1;
+            }
+        }
+        return $result;
+    }
+
 
 
     /**
@@ -214,6 +243,4 @@ class ChildRequest extends Request
         $this->responseTimes[$uri][] = $responseTime;
     }
 }
-
-
 ?>
