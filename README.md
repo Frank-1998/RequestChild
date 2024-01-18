@@ -8,3 +8,4 @@ GoodMorning.com candidate exercise
 
 ## References
 [time effcicency compare between array_map and forech loop](https://stackoverflow.com/questions/25481714/php-is-array-map-faster-than-foreach)
+[Tracking the script execution time in PHP](https://www.php.net/manual/en/function.microtime.php)
