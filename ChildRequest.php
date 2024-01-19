@@ -6,9 +6,8 @@ include 'Request.php';
 class ChildRequest extends Request
 {
     // an array to record array of response times of each uri
-    public $responseTimes = []; //TODO: method to retirve all uris (keys)
+    private $responseTimes = []; 
     public $maxNumBins;
-
 
     /**
      * the constructor for ChildRequest Class
@@ -26,33 +25,21 @@ class ChildRequest extends Request
      * @param
      * @return int The maximum number of bins
      */
-    public function get_maxNumBins(): int
+    public function getMaxNumBins(): int
     {
         return $this->maxNumBins;
     }
-
-
-    // for testing and debugging purpose
-    public function showTimeArray(): void
+    
+    /**
+     * set the max bin number
+     * 
+     * @param int $num, the integer number of maximum bins
+     * @return 
+     */
+    public function setMaxNumBins(int $num): void
     {
-        var_dump($this->responseTimes);
+        $this->maxNumBins = $num;
     }
-
-    public function get_normalizedData(): void 
-    {
-        $result = $this->normalizeData();
-        $keys = array_keys($result);
-        foreach($keys as $key){
-            sort($result[$key]);
-        }
-        var_dump($result);
-    }
-    public function get_histogramData(): void
-    {
-        var_dump($this->getHistogramData());
-    }
-
-
 
     /**
      * Process the request and record response time
@@ -73,13 +60,81 @@ class ChildRequest extends Request
         return $response;
     }
 
+    public function retrieveHistogram(): array
+    {
+        $histogramData = $this->retrieveHistogramData();
+        // not enough uri to draw the histogram
+        if (count($histogramData) == 0){
+            return [];
+        }
+        // ##################### define image attribute ######################
+        // --------------------- size ----------------
+        $imgWidth = 450;
+        $imgHeight = 300;
+        $margins = 20; 
+        $barWidth = 20;
+        $graphWidth = $imgWidth - $margins * 2;
+        $graphHeight = $imgHeight - $margins * 2;
+
+        // ################### start to generating graph for each URI ##################
+        $keys = array_keys($this->responseTimes);
+        $imgArray = [];
+        foreach($keys as $key){
+            // create image and allocate color, draw border and fill color
+            $img = imagecreate($imgWidth, $imgHeight);
+            $barColor=imagecolorallocate($img,0,64,128);
+            $backgroundColor=imagecolorallocate($img,240,240,255);
+            $borderColor=imagecolorallocate($img,200,200,200);
+            $lineColor=imagecolorallocate($img,220,220,220);
+            imagefilledrectangle($img,1,1,$imgWidth-2,$imgHeight-2,$borderColor);
+            imagefilledrectangle($img,$margins,$margins,$imgWidth-1-$margins,$imgHeight-1-$margins,$backgroundColor);
+            
+            $data = $histogramData[$key]; // data for each URI
+            $numBars = count($data); // number of bars
+            $gap = ($graphWidth-$numBars*$barWidth)/($numBars+1); // gap between bars
+
+            // create scale for horizontal lines
+            $maxValue = max($data);  
+            $ratio = $graphHeight/$maxValue; 
+            $horizontalLines = max($data);
+            $horizontalGap = $graphHeight/$horizontalLines;
+            // draw horizontal lines
+            for($i = 1; $i <= $horizontalLines; $i++){
+                $y=$imgHeight - $margins - $horizontalGap * $i;
+                imageline($img, $margins, $y, $imgWidth-$margins, $y, $lineColor);
+                $label = intval($horizontalGap * $i / $ratio);
+                imagestring($img, 0, 5, $y-5, $label, $barColor);
+            }
+            // draw bars
+            $xLabels = array_keys($data);
+            for($i = 0; $i < $numBars; $i++){
+                $xLabel = $xLabels[$i];
+                $binData = $data[$xLabel];
+                $x1 = $margins + $gap + $i * ($gap + $barWidth);
+                $x2 = $x1 + $barWidth;
+                $y1 = $margins + $graphHeight - intval($binData*$ratio);
+                $y2 = $imgHeight - $margins;
+                imagestring($img, 0, $x1+3, $y1-10, $binData, $barColor);
+                imagestring($img,0,$x1+3,$imgHeight-15,$xLabel,$barColor);
+                imagefilledrectangle($img,$x1,$y1,$x2,$y2,$barColor);
+            }
+            // $imgArray[$key] = $img;
+            $imgArray[$key] = $img;
+            // reset image to default state
+            imagedestroy($img);
+
+        }
+
+        return $imgArray;
+    } 
+
     /**
      * Generate histogram data from nomalized data
      * 
      * @param
      * @return array The histogram data(category and number of each category) of each URI 
      */
-    private function getHistogramData(): array
+    private function retrieveHistogramData(): array
     {
         
         $normalizedData = $this->normalizeData();
@@ -105,7 +160,7 @@ class ChildRequest extends Request
                 for ($i = 1; $i<=$this->maxNumBins; $i++){ // using max and min value to divide bins evenly
                     $start = $min_value;
                     $finish = $min_value + $binRange;
-                    $histogramData[strval(round($start,2)."~".round($finish,2))] = $this->countInRange($start, $finish, $data);
+                    $histogramData[$key][strval(round($start,2)."~".round($finish,2))] = $this->countInRange($start, $finish, $data);
                     $min_value += ($binRange+0.0000000000001);
                 }
             }
@@ -129,8 +184,6 @@ class ChildRequest extends Request
         }
         return $result;
     }
-
-
 
     /**
      * get the normalized version of $responseTimes, based on the information provided in Request.php (sleep time is generated with Gaussian distribution),
@@ -167,7 +220,6 @@ class ChildRequest extends Request
         }
         return $normalizedData;
     }
-
 
     /**
      * retrive the mean time array, it contains mean response time for all url the object has processed so far
