@@ -6,8 +6,8 @@ include 'Request.php';
 class ChildRequest extends Request
 {
     // an array to record array of response times of each uri
-    private $responseTimes = [];
-    private $maxNumBins;
+    public $responseTimes = []; //TODO: method to retirve all uris (keys)
+    public $maxNumBins;
 
 
     /**
