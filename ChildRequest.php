@@ -60,6 +60,13 @@ class ChildRequest extends Request
         return $response;
     }
 
+    /**
+     * Method to retrieve histogram for all responses(each URI separately)
+     * Runtime: O(n)
+     * 
+     * @param 
+     * @return array array contains key=>value pair of uri and image
+     */
     public function retrieveHistogram(): array
     {
         $histogramData = $this->retrieveHistogramData();
@@ -130,6 +137,7 @@ class ChildRequest extends Request
 
     /**
      * Generate histogram data from nomalized data
+     * Runtime: O(n)
      * 
      * @param
      * @return array The histogram data(category and number of each category) of each URI 
@@ -170,6 +178,7 @@ class ChildRequest extends Request
 
     /**
      * helper function of getHistogramData, count how many number from an array are in given range
+     * Runtime: O(n)
      * 
      * @param float $min(range minimum), $max(range maximum), $numbers(array of number)
      * @return int how many numbers in the array are inside the range 
@@ -196,7 +205,7 @@ class ChildRequest extends Request
     private function normalizeData(): array
     {
         // if no record yet, can't normalize data, return empty array.
-        if (count($this->responseTimes) == 0){
+        if (empty($this->responseTimes)){
             return [];
         }
         $normalizedData = [];
@@ -211,8 +220,8 @@ class ChildRequest extends Request
                 $normalizedData[$key][] = $data[0];
                 continue;
             }
-            $mean_i = $means[$key][0];
-            $std_i = $stdDevs[$key][0];
+            $mean_i = $means[$key];
+            $std_i = $stdDevs[$key];
             foreach($data as $time){
                 $normalizedTime = ($time - $mean_i)/$std_i;
                 $normalizedData[$key][] = $normalizedTime;
@@ -235,10 +244,9 @@ class ChildRequest extends Request
         if (count($this->responseTimes) == 0){
             return [];
         }
-        $keys = array_keys($this->responseTimes);
-        foreach($keys as $key){
-            $meanTimeArray[$key][] = array_sum($this->responseTimes[$key])/count($this->responseTimes[$key]);
-        } 
+        foreach($this->responseTimes as $key=>$times){
+            $meanTimeArray[$key] = array_sum($times)/count($times);
+        }
         return $meanTimeArray;
     }
 
@@ -249,32 +257,28 @@ class ChildRequest extends Request
      * @param 
      * @return array The array that contains a standard deviation of each URI
      */
-    // TODO: implement error handling
     public function retrieveStdDev(): array
     {
         $meanArray = $this->retrieveMeanResTime();
         // there is no record yet, not able to calculate standard deviation, return empty array.
-        if (count($meanArray) == 0){
+        if (empty($meanArray)){
             return [];
         }
         $stdDevArray = [];
-        $keys = array_keys($this->responseTimes);
-        foreach($keys as $key){
-            $sum = 0.0; // for summation
-            $num_data = count($this->responseTimes[$key]); // n of each URI
-            // if there is only 1 request for this URI, the standard deviation is 0, continue to the next URI
-            if ($num_data == 1){
-                $stdDevArray[$key][] = 0.0;
+        foreach($this->responseTimes as $key => $times){
+            $numData = count($times);
+            // if there is only 1 request for this URI, std = 0, go to next URI
+            if($numData == 1){
+                $stdDevArray[$key] = 0.0;
                 continue;
             }
-            $mean_i = $meanArray[$key][0]; // mean of each URI
-
-            // to calculate the sum of square of the (x - x_mean)
-            foreach($this->responseTimes[$key] as $time){
-                $sum += pow($time - $mean_i,2);
+            $mean_i = $meanArray[$key];
+            $sum = 0.0;
+            foreach($times as $time){
+                $sum += pow($time - $mean_i, 2); 
             }
-            $stdDev = sqrt($sum/($num_data-1)); // calculate std dev
-            $stdDevArray[$key][] = $stdDev;
+            $stdDev = sqrt($sum/($numData-1));
+            $stdDevArray[$key] = $stdDev;
         }
         return $stdDevArray;
     }
@@ -291,8 +295,27 @@ class ChildRequest extends Request
         if(!array_key_exists($uri, $this->responseTimes)){
             $this->responseTimes[$uri] = [];
         }
-
         $this->responseTimes[$uri][] = $responseTime;
     }
+
+
+    // -------------------------------------- testing purpose ---------------------------------
+    public function showResTimeArray() : void {
+        var_dump($this->responseTimes); 
+    }    
 }
+
+
+
+$astiri = new ChildRequest(5);
+$astiri->childProcess('tt');
+$astiri->childProcess('tt');
+$astiri->childProcess('tt');
+$astiri->childProcess('gg');
+echo "time array\n";
+$astiri->showResTimeArray();
+echo "\nmean\n";
+var_dump($astiri->retrieveMeanResTime());
+echo "\nStd Dev\n";
+var_dump($astiri->retrieveStdDev());
 ?>
