@@ -18,5 +18,4 @@ $img = $imgArray["uri1"];
 header("Content-type:image/png");
 imagepng($img);
 $_REQUEST['asdfad']=234234;
-
 ?>

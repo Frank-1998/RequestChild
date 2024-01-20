@@ -20,6 +20,19 @@ class ChildRequest extends Request
     }
 
     /**
+     * a method act as an exception thrower when trying to do somthing with an empty responseTimes array.
+     * 
+     * @param
+     * @return array the responseTimes array.
+     */
+    private function getResponseTimeArray(): array{
+        if (empty($this->responseTimes)){
+            throw new Exception("There is no request yet.\n");
+        }
+        return $this->responseTimes;
+    }
+
+    /**
      * the getter to get maximum number of bins 
      * 
      * @param
@@ -60,9 +73,21 @@ class ChildRequest extends Request
         return $response;
     }
 
+    /**
+     * Method to retrieve histogram for all responses(each URI separately)
+     * Runtime: O(n)
+     * 
+     * @param 
+     * @return array array contains key=>value pair of uri and image
+     */
     public function retrieveHistogram(): array
     {
-        $histogramData = $this->retrieveHistogramData();
+        try{
+            $histogramData = $this->generateHistogramData();
+        } catch(Exception $e){
+            echo "Cannot generate histogram due to: ".$e->getMessage();
+            return [];
+        }
         // not enough uri to draw the histogram
         if (count($histogramData) == 0){
             return [];
@@ -80,14 +105,16 @@ class ChildRequest extends Request
         $keys = array_keys($this->responseTimes);
         $imgArray = [];
         foreach($keys as $key){
-            // create image and allocate color, draw border and fill color
-            $img = imagecreate($imgWidth, $imgHeight);
+            // create image
+            $img = imagecreate($imgWidth, $imgHeight); 
+            // define colors
             $barColor=imagecolorallocate($img,0,64,128);
             $backgroundColor=imagecolorallocate($img,240,240,255);
             $borderColor=imagecolorallocate($img,200,200,200);
             $lineColor=imagecolorallocate($img,220,220,220);
-            imagefilledrectangle($img,1,1,$imgWidth-2,$imgHeight-2,$borderColor);
-            imagefilledrectangle($img,$margins,$margins,$imgWidth-1-$margins,$imgHeight-1-$margins,$backgroundColor);
+            // draw border and fill background color
+            imagefilledrectangle($img,1,1,$imgWidth-2,$imgHeight-2,$borderColor); // draw border
+            imagefilledrectangle($img,$margins,$margins,$imgWidth-1-$margins,$imgHeight-1-$margins,$backgroundColor); // fill background color
             
             $data = $histogramData[$key]; // data for each URI
             $numBars = count($data); // number of bars
@@ -114,11 +141,10 @@ class ChildRequest extends Request
                 $x2 = $x1 + $barWidth;
                 $y1 = $margins + $graphHeight - intval($binData*$ratio);
                 $y2 = $imgHeight - $margins;
-                imagestring($img, 0, $x1+3, $y1-10, $binData, $barColor);
-                imagestring($img,0,$x1+3,$imgHeight-15,$xLabel,$barColor);
-                imagefilledrectangle($img,$x1,$y1,$x2,$y2,$barColor);
+                imagestring($img, 0, $x1+6, $y1-10, $binData, $barColor); // draw labels on the bins
+                imagestring($img,0,$x1-20,$imgHeight-15,$xLabel,$barColor); // draw x-aixs lables
+                imagefilledrectangle($img,$x1,$y1,$x2,$y2,$barColor); // color the bins
             }
-            // $imgArray[$key] = $img;
             $imgArray[$key] = $img;
             // reset image to default state
             imagedestroy($img);
@@ -130,38 +156,37 @@ class ChildRequest extends Request
 
     /**
      * Generate histogram data from nomalized data
+     * Runtime: O(n)
      * 
      * @param
      * @return array The histogram data(category and number of each category) of each URI 
      */
-    private function retrieveHistogramData(): array
+    private function generateHistogramData(): array
     {
-        
-        $normalizedData = $this->normalizeData();
         // if there is no normalized data, can't generate histogram data.
-        if (count($normalizedData) == 0){
+        try{
+            $normalizedDataArrays = $this->normalizeData();
+        } catch(Exception $e) {
+            echo 'Cannot generate histogram data due to: '. $e->getMessage();
             return [];
         }
         $histogramData = [];
-        $keys = array_keys($this->responseTimes);
-        foreach ($keys as $key){
-            $data = $normalizedData[$key];
-            $numOfUnique = count(array_unique($data));
-            if ($numOfUnique <= $this->maxNumBins){
-                $data = array_map('strval', $data);
-                // there is less data than maximum bin number, # of bins < maximum bins number
-                $histogramData[$key] = array_count_values($data);
-            }
-            else{ // divide the data into ranges(bins)
-                $min_value = min($data);
-                $max_value = max($data);
-                $range = $max_value - $min_value;
-                $binRange = $range/$this->maxNumBins;
-                for ($i = 1; $i<=$this->maxNumBins; $i++){ // using max and min value to divide bins evenly
-                    $start = $min_value;
-                    $finish = $min_value + $binRange;
-                    $histogramData[$key][strval(round($start,2)."~".round($finish,2))] = $this->countInRange($start, $finish, $data);
-                    $min_value += ($binRange+0.0000000000001);
+        foreach ($this->responseTimes as $key => $time){
+            $normDataArray = $normalizedDataArrays[$key]; // get normalized data for this URI
+            // # of unique data <= max bins, count each data's frequency and use data itself as label for x-aixs
+            if(count(array_unique($normDataArray)) <= $this->maxNumBins){
+                $normDataArray= array_map('strval', $normDataArray);
+                $histogramData[$key] = array_count_values($normDataArray);
+            } else { # of unique data > max bins, group data into evenly divided ranges, and count frequency
+                $minValue = min($normDataArray);
+                $maxValue = max($normDataArray);
+                $binRange = ($maxValue-$minValue)/$this->maxNumBins;
+
+                for($i = 1; $i <= $this->maxNumBins; $i++){
+                    $rangeStart = $minValue;
+                    $rangeEnd = $minValue + $binRange;
+                    $histogramData[$key][strval(round($rangeStart,2))."~".strval(round($rangeEnd,2))] = $this->countInRange($rangeStart, $rangeEnd, $normDataArray);
+                    $minValue += ($binRange+0.0000000000001); // increase minValue to prevent range overlap
                 }
             }
         }
@@ -170,6 +195,7 @@ class ChildRequest extends Request
 
     /**
      * helper function of getHistogramData, count how many number from an array are in given range
+     * Runtime: O(n)
      * 
      * @param float $min(range minimum), $max(range maximum), $numbers(array of number)
      * @return int how many numbers in the array are inside the range 
@@ -195,27 +221,23 @@ class ChildRequest extends Request
      */
     private function normalizeData(): array
     {
-        // if no record yet, can't normalize data, return empty array.
-        if (count($this->responseTimes) == 0){
-            return [];
+        // if no record yet, can't normalize data, throw an error.
+        if (empty($this->responseTimes)){
+            throw new Exception("There is no requst yet.\n");
         }
         $normalizedData = [];
-        $keys = array_keys($this->responseTimes); 
-        $means = $this->retrieveMeanResTime();
-        $stdDevs = $this->retrieveStdDev();
-
-        foreach($keys as $key){
-            $data = $this->responseTimes[$key];
-            // if there is only 1 data, can't normalize it, continue to next URI
-            if (count($data) < 2){
-                $normalizedData[$key][] = $data[0];
+        $means = $this->retrieveMeanResTime(); // get means
+        $stdDevs = $this->retrieveStdDev(); // get std devs
+        foreach($this->responseTimes as $key=>$time){
+            if (count($time) < 2){ // not enough data to normalize, return original data
+                $normalizedData[$key][] = $time[0];
                 continue;
             }
-            $mean_i = $means[$key][0];
-            $std_i = $stdDevs[$key][0];
-            foreach($data as $time){
-                $normalizedTime = ($time - $mean_i)/$std_i;
-                $normalizedData[$key][] = $normalizedTime;
+            // calculate normalized data
+            $mean_i = $means[$key];
+            $std_i = $stdDevs[$key];
+            foreach($time as $data){
+                $normalizedData[$key][]=($data - $mean_i)/$std_i;
             }
         }
         return $normalizedData;
@@ -230,15 +252,18 @@ class ChildRequest extends Request
      */
     public function retrieveMeanResTime(): array
     {
-        $meanTimeArray = [];
-        // if there no record yet, not be able to calculate mean, return empty array.
-        if (count($this->responseTimes) == 0){
+        // if there no record yet, not be able to calculate mean, throw an error.
+        try{
+            $resTimeArr = $this->getResponseTimeArray();
+        } catch(Exception $e){
+            echo "Cannot calculate mean request time due to: ". $e->getMessage();
             return [];
         }
-        $keys = array_keys($this->responseTimes);
-        foreach($keys as $key){
-            $meanTimeArray[$key][] = array_sum($this->responseTimes[$key])/count($this->responseTimes[$key]);
-        } 
+        $meanTimeArray = [];
+        // calculate means
+        foreach($resTimeArr as $key=>$times){
+            $meanTimeArray[$key] = array_sum($times)/count($times);
+        }
         return $meanTimeArray;
     }
 
@@ -249,32 +274,32 @@ class ChildRequest extends Request
      * @param 
      * @return array The array that contains a standard deviation of each URI
      */
-    // TODO: implement error handling
     public function retrieveStdDev(): array
     {
-        $meanArray = $this->retrieveMeanResTime();
-        // there is no record yet, not able to calculate standard deviation, return empty array.
-        if (count($meanArray) == 0){
+        // there is no record yet, not able to calculate standard deviation, throw an error.
+        try {
+            $meanArray = $this->retrieveMeanResTime();
+            $resTimeArr = $this->getResponseTimeArray();
+        } catch(Exception $e) {
+            echo 'Cannot calculate Standard Deviation due to: '.$e->getMessage()."\n";
             return [];
         }
         $stdDevArray = [];
-        $keys = array_keys($this->responseTimes);
-        foreach($keys as $key){
-            $sum = 0.0; // for summation
-            $num_data = count($this->responseTimes[$key]); // n of each URI
-            // if there is only 1 request for this URI, the standard deviation is 0, continue to the next URI
-            if ($num_data == 1){
-                $stdDevArray[$key][] = 0.0;
+        foreach($resTimeArr as $key => $times){
+            $numData = count($times);
+            // if there is only 1 request for this URI, std = 0, go to next URI
+            if($numData == 1){
+                $stdDevArray[$key] = 0.0;
                 continue;
             }
-            $mean_i = $meanArray[$key][0]; // mean of each URI
-
-            // to calculate the sum of square of the (x - x_mean)
-            foreach($this->responseTimes[$key] as $time){
-                $sum += pow($time - $mean_i,2);
+            // calculate standard deviations
+            $mean_i = $meanArray[$key];
+            $sum = 0.0;
+            foreach($times as $time){
+                $sum += pow($time - $mean_i, 2); 
             }
-            $stdDev = sqrt($sum/($num_data-1)); // calculate std dev
-            $stdDevArray[$key][] = $stdDev;
+            $stdDev = sqrt($sum/($numData-1));
+            $stdDevArray[$key] = $stdDev;
         }
         return $stdDevArray;
     }
@@ -291,7 +316,6 @@ class ChildRequest extends Request
         if(!array_key_exists($uri, $this->responseTimes)){
             $this->responseTimes[$uri] = [];
         }
-
         $this->responseTimes[$uri][] = $responseTime;
     }
 }
