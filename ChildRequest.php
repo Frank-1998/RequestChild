@@ -20,6 +20,19 @@ class ChildRequest extends Request
     }
 
     /**
+     * a method act as an exception thrower when trying to do somthing with an empty responseTimes array.
+     * 
+     * @param
+     * @return array the responseTimes array.
+     */
+    private function getResponseTimeArray(): array{
+        if (empty($this->responseTimes)){
+            throw new Exception("There is no request yet.\n");
+        }
+        return $this->responseTimes;
+    }
+
+    /**
      * the getter to get maximum number of bins 
      * 
      * @param
@@ -69,7 +82,12 @@ class ChildRequest extends Request
      */
     public function retrieveHistogram(): array
     {
-        $histogramData = $this->generateHistogramData();
+        try{
+            $histogramData = $this->generateHistogramData();
+        } catch(Exception $e){
+            echo "Cannot generate histogram due to: ".$e->getMessage();
+            return [];
+        }
         // not enough uri to draw the histogram
         if (count($histogramData) == 0){
             return [];
@@ -145,9 +163,11 @@ class ChildRequest extends Request
      */
     private function generateHistogramData(): array
     {
-        $normalizedDataArrays = $this->normalizeData();
         // if there is no normalized data, can't generate histogram data.
-        if (empty($normalizedDataArrays)){
+        try{
+            $normalizedDataArrays = $this->normalizeData();
+        } catch(Exception $e) {
+            echo 'Cannot generate histogram data due to: '. $e->getMessage();
             return [];
         }
         $histogramData = [];
@@ -201,9 +221,9 @@ class ChildRequest extends Request
      */
     private function normalizeData(): array
     {
-        // if no record yet, can't normalize data, return empty array.
+        // if no record yet, can't normalize data, throw an error.
         if (empty($this->responseTimes)){
-            return [];
+            throw new Exception("There is no requst yet.\n");
         }
         $normalizedData = [];
         $means = $this->retrieveMeanResTime(); // get means
@@ -232,13 +252,16 @@ class ChildRequest extends Request
      */
     public function retrieveMeanResTime(): array
     {
-        $meanTimeArray = [];
-        // if there no record yet, not be able to calculate mean, return empty array.
-        if (count($this->responseTimes) == 0){
+        // if there no record yet, not be able to calculate mean, throw an error.
+        try{
+            $resTimeArr = $this->getResponseTimeArray();
+        } catch(Exception $e){
+            echo "Cannot calculate mean request time due to: ". $e->getMessage();
             return [];
         }
+        $meanTimeArray = [];
         // calculate means
-        foreach($this->responseTimes as $key=>$times){
+        foreach($resTimeArr as $key=>$times){
             $meanTimeArray[$key] = array_sum($times)/count($times);
         }
         return $meanTimeArray;
@@ -253,13 +276,16 @@ class ChildRequest extends Request
      */
     public function retrieveStdDev(): array
     {
-        $meanArray = $this->retrieveMeanResTime();
-        // there is no record yet, not able to calculate standard deviation, return empty array.
-        if (empty($meanArray)){
+        // there is no record yet, not able to calculate standard deviation, throw an error.
+        try {
+            $meanArray = $this->retrieveMeanResTime();
+            $resTimeArr = $this->getResponseTimeArray();
+        } catch(Exception $e) {
+            echo 'Cannot calculate Standard Deviation due to: '.$e->getMessage()."\n";
             return [];
         }
         $stdDevArray = [];
-        foreach($this->responseTimes as $key => $times){
+        foreach($resTimeArr as $key => $times){
             $numData = count($times);
             // if there is only 1 request for this URI, std = 0, go to next URI
             if($numData == 1){
@@ -293,5 +319,4 @@ class ChildRequest extends Request
         $this->responseTimes[$uri][] = $responseTime;
     }
 }
-
 ?>
