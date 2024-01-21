@@ -296,7 +296,7 @@ class ChildRequest extends Request
             $mean_i = $meanArray[$key];
             $sum = 0.0;
             foreach($times as $time){
-                $sum += pow($time - $mean_i, 2); 
+                $sum += pow(($time - $mean_i), 2); 
             }
             $stdDev = sqrt($sum/($numData-1));
             $stdDevArray[$key] = $stdDev;
