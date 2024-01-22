@@ -2,15 +2,14 @@
 GoodMorning.com candidate exercise
 
 ## Tech Stack
-
-
-## UML Class Diagram
-![uml diagram](uml_diagram.png)
 PHP 8.1.2-1ubuntu2.14 (cli)
 
 php GD
 
 PhpUnit 9.5.10
+
+## UML Class Diagram
+![uml diagram](uml_diagram.png)
 
 ## References
 [time efficiency compare between array_map and forech loop](https://stackoverflow.com/questions/25481714/php-is-array-map-faster-than-foreach)
